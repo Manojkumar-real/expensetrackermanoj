@@ -7,18 +7,17 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Trash, Search, Calendar, Edit } from 'lucide-react';
+import { Trash, Search, Calendar, Edit, DollarSign, IndianRupee } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import { getCategories } from '@/contexts/ExpenseContext';
 import ExpenseEditDialog from './ExpenseEditDialog';
 
 const ExpenseList: React.FC = () => {
-  const { expenses, deleteExpense } = useExpenses();
+  const { expenses, deleteExpense, categories, currentCurrency, conversionRate } = useExpenses();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   
-  const categories = ['All Categories', ...getCategories()];
+  const allCategories = ['All Categories', ...categories];
 
   const filteredExpenses = expenses.filter(expense => {
     const matchesSearch = expense.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -32,6 +31,12 @@ const ExpenseList: React.FC = () => {
     } catch (error) {
       return dateString;
     }
+  };
+
+  const formatAmount = (amount: number) => {
+    // Expenses are stored in USD internally, convert to INR if needed
+    const displayAmount = currentCurrency === 'INR' ? amount * conversionRate : amount;
+    return `${currentCurrency === 'USD' ? '$' : '₹'} ${displayAmount.toFixed(2)}`;
   };
 
   const handleEdit = (expense: Expense) => {
@@ -61,7 +66,7 @@ const ExpenseList: React.FC = () => {
               <SelectValue placeholder="All Categories" />
             </SelectTrigger>
             <SelectContent>
-              {categories.map(category => (
+              {allCategories.map(category => (
                 <SelectItem key={category} value={category}>
                   {category}
                 </SelectItem>
@@ -101,7 +106,14 @@ const ExpenseList: React.FC = () => {
                     <TableCell className="max-w-[200px] truncate">{expense.description}</TableCell>
                     <TableCell>{expense.category}</TableCell>
                     <TableCell className="text-right font-medium">
-                      ${expense.amount.toFixed(2)}
+                      <div className="flex items-center justify-end gap-1">
+                        {currentCurrency === 'USD' ? (
+                          <DollarSign className="h-3 w-3 text-muted-foreground" />
+                        ) : (
+                          <IndianRupee className="h-3 w-3 text-muted-foreground" />
+                        )}
+                        {currentCurrency === 'USD' ? expense.amount.toFixed(2) : (expense.amount * conversionRate).toFixed(2)}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">

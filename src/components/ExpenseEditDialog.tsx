@@ -6,8 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar } from 'lucide-react';
-import { Expense, useExpenses, getCategories } from '@/contexts/ExpenseContext';
+import { Calendar, DollarSign, IndianRupee } from 'lucide-react';
+import { Expense, useExpenses } from '@/contexts/ExpenseContext';
 
 interface ExpenseEditDialogProps {
   expense: Expense;
@@ -16,29 +16,39 @@ interface ExpenseEditDialogProps {
 }
 
 const ExpenseEditDialog: React.FC<ExpenseEditDialogProps> = ({ expense, isOpen, onClose }) => {
-  const { editExpense } = useExpenses();
-  const [amount, setAmount] = useState<string>(expense.amount.toString());
+  const { editExpense, categories, currentCurrency, conversionRate } = useExpenses();
+  const [amount, setAmount] = useState<string>('');
   const [category, setCategory] = useState<string>(expense.category);
   const [date, setDate] = useState<string>(expense.date);
   const [description, setDescription] = useState<string>(expense.description);
-  const categories = getCategories();
 
   useEffect(() => {
     if (isOpen) {
-      setAmount(expense.amount.toString());
+      // Display amount in the current currency
+      const displayAmount = currentCurrency === 'INR' 
+        ? (expense.amount * conversionRate).toString()
+        : expense.amount.toString();
+      
+      setAmount(displayAmount);
       setCategory(expense.category);
       setDate(expense.date);
       setDescription(expense.description);
     }
-  }, [expense, isOpen]);
+  }, [expense, isOpen, currentCurrency, conversionRate]);
 
   const handleSubmit = () => {
     if (!amount || !category || !date || !description) {
       return;
     }
     
+    // Convert amount if needed (store in USD internally)
+    let amountValue = parseFloat(amount);
+    if (currentCurrency === 'INR') {
+      amountValue = amountValue / conversionRate;
+    }
+    
     editExpense(expense.id, {
-      amount: parseFloat(amount),
+      amount: amountValue,
       category,
       date,
       description
@@ -46,6 +56,8 @@ const ExpenseEditDialog: React.FC<ExpenseEditDialogProps> = ({ expense, isOpen, 
     
     onClose();
   };
+
+  const getCurrencySymbol = () => currentCurrency === 'USD' ? '$' : '₹';
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
@@ -57,17 +69,37 @@ const ExpenseEditDialog: React.FC<ExpenseEditDialogProps> = ({ expense, isOpen, 
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="edit-amount">Amount ($)</Label>
-            <Input
-              id="edit-amount"
-              type="number"
-              step="0.01"
-              min="0.01"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="text-lg"
-              required
-            />
+            <Label htmlFor="edit-amount">Amount ({getCurrencySymbol()})</Label>
+            <div className="relative">
+              <Input
+                id="edit-amount"
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="pl-8 text-lg"
+                required
+              />
+              <div className="absolute left-3 top-2.5">
+                {currentCurrency === 'USD' ? (
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <IndianRupee className="h-4 w-4 text-muted-foreground" />
+                )}
+              </div>
+            </div>
+            
+            {amount && currentCurrency === 'INR' && (
+              <div className="text-xs text-muted-foreground">
+                Approx ${(parseFloat(amount) / conversionRate).toFixed(2)} USD
+              </div>
+            )}
+            {amount && currentCurrency === 'USD' && (
+              <div className="text-xs text-muted-foreground">
+                Approx ₹{(parseFloat(amount) * conversionRate).toFixed(2)} INR
+              </div>
+            )}
           </div>
           
           <div className="space-y-2">

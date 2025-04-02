@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useToast } from "@/components/ui/use-toast";
 import { v4 as uuidv4 } from 'uuid';
@@ -17,17 +16,24 @@ export type ExpenseSummary = {
   byMonth: Record<string, number>;
 };
 
+type CurrencyType = 'USD' | 'INR';
+
 type ExpenseContextType = {
   expenses: Expense[];
   addExpense: (expense: Omit<Expense, 'id'>) => void;
   deleteExpense: (id: string) => void;
   editExpense: (id: string, updatedExpense: Omit<Expense, 'id'>) => void;
   summary: ExpenseSummary;
+  categories: string[];
+  addCategory: (category: string) => void;
+  currentCurrency: CurrencyType;
+  toggleCurrency: () => void;
+  conversionRate: number;
 };
 
 const ExpenseContext = createContext<ExpenseContextType | undefined>(undefined);
 
-const CATEGORIES = [
+const DEFAULT_CATEGORIES = [
   'Food & Dining', 
   'Shopping', 
   'Housing', 
@@ -40,6 +46,9 @@ const CATEGORIES = [
   'Utilities',
   'Other'
 ];
+
+// USD to INR conversion rate (approximate)
+const USD_TO_INR_RATE = 83.5;
 
 export const MOCK_EXPENSES: Expense[] = [
   {
@@ -100,7 +109,13 @@ export const MOCK_EXPENSES: Expense[] = [
   },
 ];
 
-export const getCategories = () => CATEGORIES;
+export const getCategories = () => {
+  const savedCategories = localStorage.getItem('expenseCategories');
+  if (savedCategories) {
+    return JSON.parse(savedCategories);
+  }
+  return DEFAULT_CATEGORIES;
+};
 
 export const ExpenseProvider = ({ children }: { children: ReactNode }) => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -109,21 +124,39 @@ export const ExpenseProvider = ({ children }: { children: ReactNode }) => {
     byCategory: {},
     byMonth: {},
   });
+  const [categories, setCategories] = useState<string[]>(getCategories());
+  const [currentCurrency, setCurrentCurrency] = useState<CurrencyType>('USD');
   const { toast } = useToast();
 
-  // Load expenses from localStorage on mount
+  // Load expenses and categories from localStorage on mount
   useEffect(() => {
     try {
       const savedExpenses = localStorage.getItem('expenses');
+      const savedCategories = localStorage.getItem('expenseCategories');
+      
       if (savedExpenses) {
         setExpenses(JSON.parse(savedExpenses));
       } else {
         // Use mock data for demo purposes
         setExpenses(MOCK_EXPENSES);
       }
+      
+      if (savedCategories) {
+        setCategories(JSON.parse(savedCategories));
+      } else {
+        setCategories(DEFAULT_CATEGORIES);
+      }
+      
+      // Load currency preference
+      const savedCurrency = localStorage.getItem('currentCurrency');
+      if (savedCurrency) {
+        setCurrentCurrency(savedCurrency as CurrencyType);
+      }
+      
     } catch (error) {
-      console.error('Error loading expenses:', error);
+      console.error('Error loading data:', error);
       setExpenses(MOCK_EXPENSES);
+      setCategories(DEFAULT_CATEGORIES);
     }
   }, []);
 
@@ -136,6 +169,20 @@ export const ExpenseProvider = ({ children }: { children: ReactNode }) => {
       console.error('Error saving expenses:', error);
     }
   }, [expenses]);
+  
+  // Save categories to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('expenseCategories', JSON.stringify(categories));
+    } catch (error) {
+      console.error('Error saving categories:', error);
+    }
+  }, [categories]);
+  
+  // Save currency preference
+  useEffect(() => {
+    localStorage.setItem('currentCurrency', currentCurrency);
+  }, [currentCurrency]);
 
   const calculateSummary = () => {
     const total = expenses.reduce((sum, expense) => sum + expense.amount, 0);
@@ -159,7 +206,7 @@ export const ExpenseProvider = ({ children }: { children: ReactNode }) => {
     setExpenses(prev => [newExpense, ...prev]);
     toast({
       title: "Expense Added",
-      description: `$${expense.amount.toFixed(2)} for ${expense.description}`,
+      description: `${getCurrencySymbol()} ${expense.amount.toFixed(2)} for ${expense.description}`,
     });
   };
 
@@ -184,9 +231,50 @@ export const ExpenseProvider = ({ children }: { children: ReactNode }) => {
       description: `Updated: ${updatedExpense.description}`,
     });
   };
-
+  
+  const addCategory = (category: string) => {
+    if (category.trim() === '') return;
+    
+    // Check if category already exists (case-insensitive)
+    if (categories.some(cat => cat.toLowerCase() === category.trim().toLowerCase())) {
+      toast({
+        title: "Category Already Exists",
+        description: "This category is already in the list.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setCategories(prev => [...prev, category.trim()]);
+    toast({
+      title: "Category Added",
+      description: `Added "${category.trim()}" to categories`,
+    });
+  };
+  
+  const toggleCurrency = () => {
+    setCurrentCurrency(prev => prev === 'USD' ? 'INR' : 'USD');
+    toast({
+      title: "Currency Changed",
+      description: `Switched to ${currentCurrency === 'USD' ? 'Indian Rupees (₹)' : 'US Dollars ($)'}`,
+    });
+  };
+  
+  const getCurrencySymbol = () => currentCurrency === 'USD' ? '$' : '₹';
+  
   return (
-    <ExpenseContext.Provider value={{ expenses, addExpense, deleteExpense, editExpense, summary }}>
+    <ExpenseContext.Provider value={{ 
+      expenses, 
+      addExpense, 
+      deleteExpense, 
+      editExpense, 
+      summary, 
+      categories, 
+      addCategory,
+      currentCurrency,
+      toggleCurrency,
+      conversionRate: USD_TO_INR_RATE
+    }}>
       {children}
     </ExpenseContext.Provider>
   );
