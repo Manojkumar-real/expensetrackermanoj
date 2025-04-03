@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,9 +20,14 @@ const ChatBox = () => {
   ]);
   const [isLoading, setIsLoading] = useState(false);
   const { expenses, currentCurrency, summary } = useExpenses();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const totalAmount = summary?.total || 0;
   const categorySummary = summary?.byCategory || {};
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading]);
 
   const handleSendMessage = () => {
     if (!input.trim()) return;
@@ -38,7 +42,6 @@ const ChatBox = () => {
     setInput('');
     setIsLoading(true);
 
-    // Simulate AI response with financial insights
     setTimeout(() => {
       const botResponse = generateResponse(userMessage.text);
       setMessages(prev => [...prev, { text: botResponse, isBot: true, timestamp: new Date() }]);
@@ -49,11 +52,9 @@ const ChatBox = () => {
   const generateResponse = (query: string): string => {
     const lowercaseQuery = query.toLowerCase();
     
-    // Get highest expense category
     const highestCategory = Object.entries(categorySummary || {})
       .sort(([, a], [, b]) => Number(b) - Number(a))[0];
     
-    // Check if expenses exist
     if (!expenses || expenses.length === 0) {
       return "I don't see any expense data yet. Start tracking your expenses, and I'll provide personalized saving tips.";
     }
@@ -111,7 +112,7 @@ const ChatBox = () => {
             </DialogTitle>
           </DialogHeader>
           
-          <ScrollArea className="flex-1 pr-4 h-[350px] max-h-[50vh]">
+          <ScrollArea className="flex-1 pr-4 h-[350px] max-h-[50vh] overflow-y-auto">
             <div className="space-y-4 p-1">
               {messages.map((message, index) => (
                 <div 
@@ -144,6 +145,7 @@ const ChatBox = () => {
                   </div>
                 </div>
               )}
+              <div ref={messagesEndRef} />
             </div>
           </ScrollArea>
           
