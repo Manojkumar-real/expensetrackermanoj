@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -68,10 +67,7 @@ const ChatBox = () => {
     if (lowercaseQuery.includes('analyze') || lowercaseQuery.includes('spending') || lowercaseQuery.includes('expenses')) {
       return `Here's a quick analysis of your expenses:
 
-1. You've tracked ${expenses.length} expenses totaling ${currentCurrency === 'USD' ? '$' : '₹'}${totalAmount.toFixed(2)}.
-2. Your biggest expense category is ${highestCategory?.[0] || 'unknown'}.
-3. ${expenses.length > 3 ? `Your most recent expense was "${expenses[0]?.description}" for ${currentCurrency === 'USD' ? '$' : '₹'}${expenses[0]?.amount?.toFixed(2)}.` : 'You have just started tracking expenses.'} 
-4. ${expenses.some(e => e.amount > totalAmount * 0.3) ? 'I notice some large one-time expenses. Consider spreading out big purchases when possible.' : 'Your expenses seem evenly distributed, which is good for budgeting!'}`;
+1. You've tracked ${expenses.length} expenses totaling ${currentCurrency === 'USD' ? '$' : '₹'}${totalAmount.toFixed(2)}.\n2. Your biggest expense category is ${highestCategory?.[0] || 'unknown'}.\n3. ${expenses.length > 3 ? `Your most recent expense was "${expenses[0]?.description}" for ${currentCurrency === 'USD' ? '$' : '₹'}${expenses[0]?.amount?.toFixed(2)}.` : 'You have just started tracking expenses.'} \n4. ${expenses.some(e => e.amount > totalAmount * 0.3) ? 'I notice some large one-time expenses. Consider spreading out big purchases when possible.' : 'Your expenses seem evenly distributed, which is good for budgeting!'}`;
     }
 
     if (lowercaseQuery.includes('budget') || lowercaseQuery.includes('plan')) {
