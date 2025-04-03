@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -159,7 +160,7 @@ const ChatBox = () => {
               Try asking "How can I save money?" or "Analyze my expenses"
             </p>
           </div>
-        </DialogFooter>
+        </DialogContent>
       </Dialog>
     </>
   );
