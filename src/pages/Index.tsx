@@ -5,6 +5,7 @@ import Header from '@/components/Header';
 import ExpenseDashboard from '@/components/ExpenseDashboard';
 import ExpenseForm from '@/components/ExpenseForm';
 import ExpenseList from '@/components/ExpenseList';
+import ChatBox from '@/components/ChatBox';
 
 const Index: React.FC = () => {
   return (
@@ -22,6 +23,7 @@ const Index: React.FC = () => {
           </div>
           <ExpenseList />
         </main>
+        <ChatBox />
         <footer className="py-6 border-t">
           <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
             © {new Date().getFullYear()} Expense Tracker - Built with React & Tailwind CSS
