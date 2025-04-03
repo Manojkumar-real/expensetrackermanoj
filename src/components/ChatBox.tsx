@@ -20,7 +20,10 @@ const ChatBox = () => {
     { text: "Hi! I'm your financial assistant. I can help you save money based on your spending habits. Try asking me things like 'How can I save money?' or 'Analyze my expenses'.", isBot: true, timestamp: new Date() }
   ]);
   const [isLoading, setIsLoading] = useState(false);
-  const { expenses, currentCurrency, totalAmount, categorySummary } = useExpenses();
+  const { expenses, currentCurrency, summary } = useExpenses();
+  
+  const totalAmount = summary?.total || 0;
+  const categorySummary = summary?.byCategory || {};
 
   const handleSendMessage = () => {
     if (!input.trim()) return;
@@ -48,7 +51,7 @@ const ChatBox = () => {
     
     // Get highest expense category
     const highestCategory = Object.entries(categorySummary || {})
-      .sort(([, a], [, b]) => b - a)[0];
+      .sort(([, a], [, b]) => Number(b) - Number(a))[0];
     
     // Check if expenses exist
     if (!expenses || expenses.length === 0) {
@@ -58,7 +61,7 @@ const ChatBox = () => {
     if (lowercaseQuery.includes('save money') || lowercaseQuery.includes('saving tips')) {
       return `Based on your spending, here are some tips to save money:
       
-1. Your highest expense category is ${highestCategory?.[0] || 'unknown'} (${currentCurrency === 'USD' ? '$' : '₹'}${highestCategory?.[1]?.toFixed(2) || 0}). Try to reduce spending in this area.
+1. Your highest expense category is ${highestCategory?.[0] || 'unknown'} (${currentCurrency === 'USD' ? '$' : '₹'}${Number(highestCategory?.[1]).toFixed(2) || 0}). Try to reduce spending in this area.
 2. Set a budget for each category and stick to it.
 3. Look for recurring subscriptions you might not need.
 4. Consider meal planning to reduce food expenses.
@@ -68,7 +71,10 @@ const ChatBox = () => {
     if (lowercaseQuery.includes('analyze') || lowercaseQuery.includes('spending') || lowercaseQuery.includes('expenses')) {
       return `Here's a quick analysis of your expenses:
 
-1. You've tracked ${expenses.length} expenses totaling ${currentCurrency === 'USD' ? '$' : '₹'}${totalAmount.toFixed(2)}.\n2. Your biggest expense category is ${highestCategory?.[0] || 'unknown'}.\n3. ${expenses.length > 3 ? `Your most recent expense was "${expenses[0]?.description}" for ${currentCurrency === 'USD' ? '$' : '₹'}${expenses[0]?.amount?.toFixed(2)}.` : 'You have just started tracking expenses.'} \n4. ${expenses.some(e => e.amount > totalAmount * 0.3) ? 'I notice some large one-time expenses. Consider spreading out big purchases when possible.' : 'Your expenses seem evenly distributed, which is good for budgeting!'}`;
+1. You've tracked ${expenses.length} expenses totaling ${currentCurrency === 'USD' ? '$' : '₹'}${totalAmount.toFixed(2)}.
+2. Your biggest expense category is ${highestCategory?.[0] || 'unknown'}.
+3. ${expenses.length > 3 ? `Your most recent expense was "${expenses[0]?.description}" for ${currentCurrency === 'USD' ? '$' : '₹'}${Number(expenses[0]?.amount).toFixed(2)}.` : 'You have just started tracking expenses.'} 
+4. ${expenses.some(e => e.amount > totalAmount * 0.3) ? 'I notice some large one-time expenses. Consider spreading out big purchases when possible.' : 'Your expenses seem evenly distributed, which is good for budgeting!'}`;
     }
 
     if (lowercaseQuery.includes('budget') || lowercaseQuery.includes('plan')) {
@@ -98,14 +104,14 @@ const ChatBox = () => {
       </Button>
       
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-[500px] max-h-[600px] flex flex-col">
+        <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Bot size={18} /> Financial Assistant
             </DialogTitle>
           </DialogHeader>
           
-          <ScrollArea className="flex-1 pr-4 max-h-[400px]">
+          <ScrollArea className="flex-1 pr-4 h-[350px] max-h-[50vh]">
             <div className="space-y-4 p-1">
               {messages.map((message, index) => (
                 <div 
@@ -141,12 +147,12 @@ const ChatBox = () => {
             </div>
           </ScrollArea>
           
-          <div className="flex items-center space-x-2 pt-2">
+          <div className="flex items-center space-x-2 pt-4">
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Ask for money saving tips..."
-              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+              onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
               className="flex-1"
             />
             <Button onClick={handleSendMessage} disabled={!input.trim() || isLoading}>
