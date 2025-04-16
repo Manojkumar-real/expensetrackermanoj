@@ -1,10 +1,12 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sparkles, Send, Bot, ArrowRight } from 'lucide-react';
+import { Sparkles, Send, Bot, ArrowRight, Key } from 'lucide-react';
 import { useExpenses } from '@/contexts/ExpenseContext';
+import { useToast } from '@/components/ui/use-toast';
 
 interface Message {
   text: string;
@@ -19,8 +21,13 @@ const ChatBox = () => {
     { text: "Hi! I'm your financial assistant. I can help you save money based on your spending habits. Try asking me things like 'How can I save money?' or 'Analyze my expenses'.", isBot: true, timestamp: new Date() }
   ]);
   const [isLoading, setIsLoading] = useState(false);
+  const [apiKey, setApiKey] = useState<string>(() => {
+    return localStorage.getItem('geminiApiKey') || '';
+  });
+  const [showApiInput, setShowApiInput] = useState(false);
   const { expenses, currentCurrency, summary } = useExpenses();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
   
   const totalAmount = summary?.total || 0;
   const categorySummary = summary?.byCategory || {};
@@ -29,7 +36,13 @@ const ChatBox = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
-  const handleSendMessage = () => {
+  useEffect(() => {
+    if (apiKey) {
+      localStorage.setItem('geminiApiKey', apiKey);
+    }
+  }, [apiKey]);
+
+  const handleSendMessage = async () => {
     if (!input.trim()) return;
 
     const userMessage: Message = {
@@ -42,14 +55,102 @@ const ChatBox = () => {
     setInput('');
     setIsLoading(true);
 
-    setTimeout(() => {
-      const botResponse = generateResponse(userMessage.text);
-      setMessages(prev => [...prev, { text: botResponse, isBot: true, timestamp: new Date() }]);
+    try {
+      if (!apiKey) {
+        setShowApiInput(true);
+        setIsLoading(false);
+        toast({
+          title: "API Key Required",
+          description: "Please enter your Gemini API key to continue",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      let response;
+
+      try {
+        response = await fetchGeminiResponse(userMessage.text);
+      } catch (error) {
+        console.error("Error calling Gemini API:", error);
+        response = "I encountered an error processing your request. Please check your API key or try again later.";
+        toast({
+          title: "API Error",
+          description: "Failed to get a response from Gemini",
+          variant: "destructive"
+        });
+      }
+
+      setMessages(prev => [...prev, { 
+        text: response, 
+        isBot: true, 
+        timestamp: new Date() 
+      }]);
+    } catch (error) {
+      console.error("Error in handleSendMessage:", error);
+      setMessages(prev => [...prev, { 
+        text: "Sorry, I encountered an error. Please try again.", 
+        isBot: true, 
+        timestamp: new Date() 
+      }]);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
-  const generateResponse = (query: string): string => {
+  const fetchGeminiResponse = async (userText: string) => {
+    // If API call fails, use fallback
+    try {
+      // Prepare financial context data
+      const financialContext = {
+        expenses: expenses?.length || 0,
+        totalAmount: totalAmount,
+        currency: currentCurrency,
+        topCategory: Object.entries(categorySummary || {})
+          .sort(([, a], [, b]) => Number(b) - Number(a))[0]?.[0] || "unknown"
+      };
+
+      const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: `You are a helpful financial assistant. The user has the following financial data:
+              - Number of expenses: ${financialContext.expenses}
+              - Total spending: ${financialContext.currency === 'USD' ? '$' : '₹'}${financialContext.totalAmount.toFixed(2)}
+              - Top spending category: ${financialContext.topCategory}
+              
+              The user's query is: ${userText}
+              
+              Give helpful, concise financial advice based on this information. If they're asking about saving money, budgeting, expense analysis, or financial planning, tailor your response to their specific situation using the data provided.`
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.7,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 800,
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API call failed with status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.candidates?.[0]?.content?.parts?.[0]?.text || generateFallbackResponse(userText);
+    } catch (error) {
+      console.error("Error in Gemini API call:", error);
+      return generateFallbackResponse(userText);
+    }
+  };
+
+  const generateFallbackResponse = (query: string): string => {
     const lowercaseQuery = query.toLowerCase();
     
     const highestCategory = Object.entries(categorySummary || {})
@@ -95,6 +196,22 @@ const ChatBox = () => {
 - Identify areas to cut costs`;
   };
 
+  const handleSaveApiKey = () => {
+    if (apiKey.trim()) {
+      setShowApiInput(false);
+      toast({
+        title: "API Key Saved",
+        description: "Your Gemini API key has been saved"
+      });
+    } else {
+      toast({
+        title: "Invalid API Key",
+        description: "Please enter a valid API key",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <>
       <Button 
@@ -109,8 +226,32 @@ const ChatBox = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Bot size={18} /> Financial Assistant
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className="ml-auto h-8 w-8" 
+                onClick={() => setShowApiInput(!showApiInput)}
+              >
+                <Key size={16} />
+              </Button>
             </DialogTitle>
           </DialogHeader>
+          
+          {showApiInput && (
+            <div className="mb-4 p-3 bg-muted rounded-md">
+              <p className="text-xs mb-2">Enter your Gemini API key</p>
+              <div className="flex gap-2">
+                <Input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="Gemini API Key..."
+                  className="flex-1"
+                />
+                <Button size="sm" onClick={handleSaveApiKey}>Save</Button>
+              </div>
+            </div>
+          )}
           
           <ScrollArea className="flex-1 pr-4 h-[350px] max-h-[50vh] overflow-y-auto">
             <div className="space-y-4 p-1">
