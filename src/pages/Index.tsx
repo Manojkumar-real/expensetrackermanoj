@@ -1,6 +1,8 @@
 
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { ExpenseProvider } from '@/contexts/ExpenseContext';
+import { Button } from '@/components/ui/button';
 import Header from '@/components/Header';
 import ExpenseDashboard from '@/components/ExpenseDashboard';
 import ExpenseForm from '@/components/ExpenseForm';
@@ -13,6 +15,11 @@ const Index: React.FC = () => {
       <div className="min-h-screen bg-background">
         <Header />
         <main className="container mx-auto px-4 pb-16">
+          <div className="mb-6 text-center">
+            <Link to="/portfolio">
+              <Button variant="outline">View Portfolio</Button>
+            </Link>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
             <div className="md:col-span-2">
               <ExpenseDashboard />
